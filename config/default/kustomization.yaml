@@ -1,0 +1,6 @@
+bases:
+- ../agent
+- ../rbac
+
+commonLabels:
+  app: harbor-sync

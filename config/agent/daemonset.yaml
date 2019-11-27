@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: juno
+  labels:
+    app: juno
+spec:
+  selector:
+    matchLabels:
+      app: juno
+  template:
+    metadata:
+      labels:
+        app: juno
+    spec:
+      hostNetwork: true
+      serviceAccountName: juno
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
+      volumes:
+      - name: sys
+        hostPath:
+          path: /sys
+      containers:
+      - name: agent
+        image: quay.io/moolen/juno:test
+        imagePullPolicy: Always
+        args: ['agent']
+        securityContext:
+          privileged: true
+          capabilities:
+            add: ["SYS_ADMIN"]
+        volumeMounts:
+        - name: sys
+          mountPath: /sys
+          readOnly: true
+        resources:
+          limits:
+            cpu: 100m
+            memory: 100Mi
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        env:
+        - name: KUBERNETES_NODE
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName

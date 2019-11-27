@@ -1,0 +1,104 @@
+time="2019-11-27T15:32:36Z" level=info msg="starting agent"
+runtime: unexpected return pc for runtime.bgscavenge called from 0xffffffff
+stack: frame={sp:0xc000069f40, fp:0xc000069fd8} stack=[0xc000069800,0xc00006a000)
+000000c000069e40:  0000000000000004  000000c000069e78 
+000000c000069e50:  0000000000408aac <runtime.send+124>  000000c000000180 
+000000c000069e60:  0000000000000004  000000000040f486 <runtime.mallocgc+790> 
+000000c000069e70:  000000c000000180  000000c000069ef8 
+000000c000069e80:  000000000040891a <runtime.chansend+1306>  000000c000090000 
+000000c000069e90:  000000c000092000  0000000001727830 
+000000c000069ea0:  000000c000069ee8  0000000000000003 
+000000c000069eb0:  0000000000000000  0000000000000000 
+000000c000069ec0:  0000000000000000  000000c00006ca80 
+000000c000069ed0:  00007f32645e4008  0000000000000000 
+000000c000069ee0:  000000c000090058  0000000000458d90 <runtime.chansend.func1+0> 
+000000c000069ef0:  000000c000090000  000000c000069f30 
+000000c000069f00:  00000000004083f5 <runtime.chansend1+53>  000000c000090000 
+000000c000069f10:  0000000001727830  0000000000433910 <runtime.gopark+224> 
+000000c000069f20:  0000000001613328  000000c000046001 
+000000c000069f30:  000000c000069fc8  0000000000425241 <runtime.bgscavenge+225> 
+000000c000069f40: <0000000001613330  00007f32646744b6 
+000000c000069f50:  00007f326236cb64  0000000000000000 
+000000c000069f60:  0000000000000000  0000000000000000 
+000000c000069f70:  00007f32646b4600  00007f3264673acf 
+000000c000069f80:  0000000000000000  00000000ffffffff 
+000000c000069f90:  0000000000000000  0000000000000000 
+000000c000069fa0:  0000000000000000  0000000000000000 
+000000c000069fb0:  0000000000000000  00007f32646745d2 
+000000c000069fc0:  00007f3264677080  00007f32646b4600 
+000000c000069fd0: !00000000ffffffff >00007f3264676bbb 
+000000c000069fe0:  0000000000000000  00007f3264676b6d 
+000000c000069ff0:  00007f32646b4604  0000000000000000 
+fatal error: unknown caller pc
+
+runtime stack:
+runtime.throw(0x157aba9, 0x11)
+	/usr/local/go/src/runtime/panic.go:774 +0x72
+runtime.gentraceback(0xffffffffffffffff, 0xffffffffffffffff, 0x0, 0xc000001080, 0x0, 0x0, 0x7fffffff, 0x7f3261a2d728, 0x0, 0x0, ...)
+	/usr/local/go/src/runtime/traceback.go:273 +0x19e5
+runtime.scanstack(0xc000001080, 0xc000050170)
+	/usr/local/go/src/runtime/mgcmark.go:711 +0x15d
+runtime.scang(0xc000001080, 0xc000050170)
+	/usr/local/go/src/runtime/proc.go:886 +0x1e3
+runtime.markroot.func1()
+	/usr/local/go/src/runtime/mgcmark.go:221 +0x6d
+runtime.markroot(0xc000050170, 0x7f3200000009)
+	/usr/local/go/src/runtime/mgcmark.go:202 +0x2f3
+runtime.gcDrain(0xc000050170, 0x7)
+	/usr/local/go/src/runtime/mgcmark.go:915 +0x110
+runtime.gcBgMarkWorker.func2()
+	/usr/local/go/src/runtime/mgc.go:1936 +0x16b
+runtime.systemstack(0x0)
+	/usr/local/go/src/runtime/asm_amd64.s:370 +0x66
+runtime.mstart()
+	/usr/local/go/src/runtime/proc.go:1146
+
+goroutine 26 [GC worker (idle)]:
+runtime.systemstack_switch()
+	/usr/local/go/src/runtime/asm_amd64.s:330 fp=0xc000065f60 sp=0xc000065f58 pc=0x45cea0
+runtime.gcBgMarkWorker(0xc00004ef00)
+	/usr/local/go/src/runtime/mgc.go:1900 +0x1bd fp=0xc000065fd8 sp=0xc000065f60 pc=0x41f56d
+runtime.goexit()
+	/usr/local/go/src/runtime/asm_amd64.s:1357 +0x1 fp=0xc000065fe0 sp=0xc000065fd8 pc=0x45ef71
+created by runtime.gcBgMarkStartWorkers
+	/usr/local/go/src/runtime/mgc.go:1794 +0x77
+
+goroutine 1 [syscall]:
+github.com/iovisor/gobpf/elf._C2func_perf_event_open_tracepoint(0xffffffff00000936, 0xffffffff00000000, 0x8, 0x0, 0x0, 0x0)
+	_cgo_gotypes.go:340 +0x55
+github.com/iovisor/gobpf/elf.perfEventOpenTracepoint(0x936, 0x11, 0xc000459f20, 0xe, 0xc000312de7)
+	/workspace/vendor/github.com/iovisor/gobpf/elf/module.go:291 +0x49
+github.com/iovisor/gobpf/elf.(*Module).EnableKprobe(0xc000170630, 0xc000312de0, 0x14, 0x80, 0x10, 0xc000348240)
+	/workspace/vendor/github.com/iovisor/gobpf/elf/module.go:355 +0x213
+github.com/iovisor/gobpf/elf.(*Module).EnableKprobes(0xc000170630, 0x80, 0x0, 0x0)
+	/workspace/vendor/github.com/iovisor/gobpf/elf/module.go:415 +0xc8
+github.com/moolen/juno/pkg/tracer.NewTracer(0x17785c0, 0xc0003453b0, 0x177e9c0, 0xc000311280, 0x0)
+	/workspace/pkg/tracer/tracer.go:60 +0x41d
+github.com/moolen/juno/pkg/agent/controller.New(0xc00019e400, 0xc000354000, 0x0)
+	/workspace/pkg/agent/controller/controller.go:14 +0x41
+github.com/moolen/juno/cmd.glob..func1(0x213e360, 0x21cfd48, 0x0, 0x0)
+	/workspace/cmd/agent.go:53 +0xe1
+github.com/spf13/cobra.(*Command).execute(0x213e360, 0x21cfd48, 0x0, 0x0, 0x213e360, 0x21cfd48)
+	/workspace/vendor/github.com/spf13/cobra/command.go:830 +0x2aa
+github.com/spf13/cobra.(*Command).ExecuteC(0x213e5e0, 0x43f8ea, 0x214fe60, 0xc000000180)
+	/workspace/vendor/github.com/spf13/cobra/command.go:914 +0x2fb
+github.com/spf13/cobra.(*Command).Execute(...)
+	/workspace/vendor/github.com/spf13/cobra/command.go:864
+github.com/moolen/juno/cmd.Execute()
+	/workspace/cmd/root.go:40 +0x31
+main.main()
+	/workspace/main.go:8 +0x20
+
+goroutine 6 [syscall]:
+os/signal.signal_recv(0x0)
+	/usr/local/go/src/runtime/sigqueue.go:147 +0x9c
+os/signal.loop()
+	/usr/local/go/src/os/signal/signal_unix.go:23 +0x22
+created by os/signal.init.0
+	/usr/local/go/src/os/signal/signal_unix.go:29 +0x41
+
+goroutine 8 [chan receive]:
+k8s.io/klog.(*loggingT).flushDaemon(0x21b2600)
+	/workspace/vendor/k8s.io/klog/klog.go:1010 +0x8b
+created by k8s.io/klog.init.0
+	/workspace/vendor/k8s.io/klog/klog.go:411 +0xd6
