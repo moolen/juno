@@ -7,12 +7,12 @@ import (
 )
 
 var (
-	tcpEventCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "tcp_event",
-		Help: "tcp event",
-	}, []string{"protocol", "status", "source", "destination"})
+	httpEventCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "http_event",
+		Help: "http trace event",
+	}, []string{"method", "source_address", "dest_address", "source_port", "dest_port"})
 )
 
 func init() {
-	metrics.Registry.Register(tcpEventCounter)
+	metrics.Registry.Register(httpEventCounter)
 }

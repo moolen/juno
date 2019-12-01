@@ -1,179 +1,131 @@
-// +build linux
-
 package tracer
 
 import (
-	"bytes"
-	"fmt"
-	"unsafe"
+	"bufio"
+	"os"
+	"strings"
 
-	bpflib "github.com/iovisor/gobpf/elf"
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/perf"
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
+	"github.com/pkg/errors"
+
+	log "github.com/sirupsen/logrus"
 )
 
+// Tracer ..
 type Tracer struct {
-	m           *bpflib.Module
-	perfMapIPV4 *bpflib.PerfMap
-	perfMapIPV6 *bpflib.PerfMap
-	stopChan    chan struct{}
+	coll        *ebpf.Collection
+	perfReader  *perf.Reader
+	outChan     chan TraceEvent
+	ifacePrefix string
 }
 
-type Callback interface {
-	TCPEventV4(TcpV4)
-	TCPEventV6(TcpV6)
-	LostV4(uint64)
-	LostV6(uint64)
-}
-
-// maxActive configures the maximum number of instances of the probed functions
-// that can be handled simultaneously.
-// This value should be enough to handle typical workloads (for example, some
-// amount of processes blocked on the accept syscall).
-const maxActive = 128
-
-func TracerAsset() ([]byte, error) {
-	buf, err := Asset("tcptracer-ebpf.o")
+// NewTracer ..
+func NewTracer(ifacePrefix string) (*Tracer, error) {
+	log.Info("loading tracer")
+	coll, err := compileAndLoad()
 	if err != nil {
-		return nil, fmt.Errorf("couldn't find asset: %s", err)
+		return nil, errors.Wrap(err, "error compiling and loading eBPF")
 	}
-	return buf, nil
-}
-
-func NewTracer(cb Callback) (*Tracer, error) {
-	buf, err := Asset("tcptracer-ebpf.o")
+	perfMap := coll.Maps["EVENTS_MAP"]
+	if perfMap == nil {
+		return nil, errors.Wrap(err, "missing events map")
+	}
+	pr, err := perf.NewReader(perfMap, os.Getpagesize())
 	if err != nil {
-		return nil, fmt.Errorf("couldn't find asset: %s", err)
+		return nil, errors.Wrap(err, "error creating event reader")
 	}
-	reader := bytes.NewReader(buf)
-
-	m := bpflib.NewModuleFromReader(reader)
-	if m == nil {
-		return nil, fmt.Errorf("BPF not supported")
-	}
-
-	sectionParams := make(map[string]bpflib.SectionParams)
-	sectionParams["maps/tcp_event_ipv4"] = bpflib.SectionParams{PerfRingBufferPageCount: 256}
-	err = m.Load(sectionParams)
-	if err != nil {
-		return nil, err
-	}
-
-	err = m.EnableKprobes(maxActive)
-	if err != nil {
-		return nil, err
-	}
-
-	channelV4 := make(chan []byte)
-	channelV6 := make(chan []byte)
-	lostChanV4 := make(chan uint64)
-	lostChanV6 := make(chan uint64)
-
-	perfMapIPV4, err := initializeIPv4(m, channelV4, lostChanV4)
-	if err != nil {
-		return nil, fmt.Errorf("failed to init perf map for IPv4 events: %s", err)
-	}
-
-	perfMapIPV6, err := initializeIPv6(m, channelV6, lostChanV6)
-	if err != nil {
-		return nil, fmt.Errorf("failed to init perf map for IPv6 events: %s", err)
-	}
-
-	perfMapIPV4.SetTimestampFunc(tcpV4Timestamp)
-	perfMapIPV6.SetTimestampFunc(tcpV6Timestamp)
-
-	stopChan := make(chan struct{})
-
-	go func() {
-		for {
-			select {
-			case <-stopChan:
-				// On stop, stopChan will be closed but the other channels will
-				// also be closed shortly after. The select{} has no priorities,
-				// therefore, the "ok" value must be checked below.
-				return
-			case data, ok := <-channelV4:
-				if !ok {
-					return // see explanation above
-				}
-				cb.TCPEventV4(tcpV4ToGo(&data))
-			case lost, ok := <-lostChanV4:
-				if !ok {
-					return // see explanation above
-				}
-				cb.LostV4(lost)
-			}
-		}
-	}()
-
-	go func() {
-		for {
-			select {
-			case <-stopChan:
-				return
-			case data, ok := <-channelV6:
-				if !ok {
-					return // see explanation above
-				}
-				cb.TCPEventV6(tcpV6ToGo(&data))
-			case lost, ok := <-lostChanV6:
-				if !ok {
-					return // see explanation above
-				}
-				cb.LostV6(lost)
-			}
-		}
-	}()
-
 	return &Tracer{
-		m:           m,
-		perfMapIPV4: perfMapIPV4,
-		perfMapIPV6: perfMapIPV6,
-		stopChan:    stopChan,
+		coll:        coll,
+		perfReader:  pr,
+		outChan:     make(chan TraceEvent),
+		ifacePrefix: ifacePrefix,
 	}, nil
 }
 
-func (t *Tracer) Start() {
-	t.perfMapIPV4.PollStart()
-	t.perfMapIPV6.PollStart()
-}
-
-func (t *Tracer) AddFdInstallWatcher(pid uint32) (err error) {
-	var one uint32 = 1
-	mapFdInstall := t.m.Map("fdinstall_pids")
-	err = t.m.UpdateElement(mapFdInstall, unsafe.Pointer(&pid), unsafe.Pointer(&one), 0)
-	return err
-}
-
-func (t *Tracer) RemoveFdInstallWatcher(pid uint32) (err error) {
-	mapFdInstall := t.m.Map("fdinstall_pids")
-	err = t.m.DeleteElement(mapFdInstall, unsafe.Pointer(&pid))
-	return err
-}
-
-func (t *Tracer) Stop() {
-	close(t.stopChan)
-	t.perfMapIPV4.PollStop()
-	t.perfMapIPV6.PollStop()
-	t.m.Close()
-}
-
-func initialize(module *bpflib.Module, eventMapName string, eventChan chan []byte, lostChan chan uint64) (*bpflib.PerfMap, error) {
-	if err := guess(module); err != nil {
-		return nil, fmt.Errorf("error guessing offsets: %v", err)
-	}
-
-	pm, err := bpflib.InitPerfMap(module, eventMapName, eventChan, lostChan)
+func processSample(data []byte) (*TraceEvent, error) {
+	trace := &TraceEvent{}
+	var err error
+	metadata, skb, err := perfEventToGo(data)
 	if err != nil {
-		return nil, fmt.Errorf("error initializing perf map for %q: %v", eventMapName, err)
+		return nil, err
 	}
+	trace.Metadata = metadata
+	log.Debugf("(%d) %x", len(data), skb)
 
-	return pm, nil
+	packet := gopacket.NewPacket(skb, layers.LayerTypeEthernet, gopacket.Default)
+	if ipLayer := packet.Layer(layers.LayerTypeIPv4); ipLayer != nil {
+		ip, _ := ipLayer.(*layers.IPv4)
+		trace.SourceAddr = ip.SrcIP
+		trace.DestAddr = ip.DstIP
+		trace.L3Proto = "IPv4"
+	}
+	if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
+		tcp, _ := tcpLayer.(*layers.TCP)
+		trace.SourcePort = uint16(tcp.SrcPort)
+		trace.DestPort = uint16(tcp.DstPort)
+		trace.L4Proto = "TCP"
 
+		appLayer := packet.ApplicationLayer()
+		if appLayer != nil {
+			trace.L7Proto = "unknown"
+			rd := strings.NewReader(string(appLayer.Payload()) + "\r\n")
+			l7meta, _ := parseHTTPMetadata(bufio.NewReader(rd))
+			if err != nil {
+				trace.L7Proto = "HTTP"
+				trace.L7Metadata = l7meta
+			}
+		}
+	} else if udpLayer := packet.Layer(layers.LayerTypeUDP); udpLayer != nil {
+		udp, _ := udpLayer.(*layers.UDP)
+		trace.SourcePort = uint16(udp.SrcPort)
+		trace.DestPort = uint16(udp.DstPort)
+		trace.L4Proto = "UDP"
+		if dnsLayer := packet.Layer(layers.LayerTypeDNS); dnsLayer != nil {
+			dns, _ := dnsLayer.(*layers.DNS)
+			trace.L7Proto = "DNS"
+			trace.L7Metadata, err = parseDNSMetadata(dns)
+		}
+	}
+	return trace, nil
 }
 
-func initializeIPv4(module *bpflib.Module, eventChan chan []byte, lostChan chan uint64) (*bpflib.PerfMap, error) {
-	return initialize(module, "tcp_event_ipv4", eventChan, lostChan)
+func (s *Tracer) Read() <-chan TraceEvent {
+	return s.outChan
 }
 
-func initializeIPv6(module *bpflib.Module, eventChan chan []byte, lostChan chan uint64) (*bpflib.PerfMap, error) {
-	return initialize(module, "tcp_event_ipv6", eventChan, lostChan)
+// Start ..
+func (s *Tracer) Start() error {
+	go func() {
+		for {
+			var trace *TraceEvent
+			rec, err := s.perfReader.Read()
+			if err != nil {
+				log.Error(err)
+				continue
+			}
+			trace, err = processSample(rec.RawSample)
+			if err != nil {
+				log.Error(err)
+				continue
+			}
+			s.outChan <- *trace
+		}
+	}()
+	err := replaceDatapath(s.coll, s.ifacePrefix)
+	if err != nil {
+		return err
+	}
+	return err
+}
+
+// Stop ..
+func (s *Tracer) Stop() {
+	err := resetDatapath(s.coll, s.ifacePrefix)
+	if err != nil {
+		log.Error(err)
+	}
+	s.coll.Close()
 }

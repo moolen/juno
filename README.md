@@ -1,26 +1,40 @@
-# Harbor Sync
-[![Actions Status](https://github.com/moolen/harbor-sync/workflows/Run%20Tests/badge.svg)](https://github.com/moolen/harbor-sync/actions) [![Go Report Card](https://goreportcard.com/badge/github.com/moolen/harbor-sync)](https://goreportcard.com/report/github.com/moolen/harbor-sync)
+## TODO
 
-Harbor Sync allows you to synchronize your Harbor robot accounts with your Kubernetes cluster.
+Poc #1
+* [x] run kprobe for tcp connect/accept
+* [x] draw dependency graph based on observed connections (see /tmp/graph.svg)
 
-## How it works
-This project extends the Kubernetes API by adding a Custom Resource `HarborSync` and a controller that implements a reconciliation loop. This loop takes care of creating and refreshing robot account tokens aswell as distributing the tokens into your namespaces as secrets.
+PoC #2
+* [x] run eBPF program on veth to extract traffic flow information
+* [ ] implement auditing use-case: implement event buffer map per veth interface
 
-A `HarborSync` defines which Harbor projects should be synced with which namespaces.
+* [ ] implement central component to collect traffic information
 
-![Harbor Sync Controller](./docs_src/static/harbor-sync-overview.png)
+## Notes
+
+* docker/moby does not support cgroup2
+
+## Installation
+
+```
+kubectl apply -k config/default/
+```
+
+## Example
+
+Preprequisites:
+* have juno installed
 
 
-## Documentation
-You can find the documentation [here](http://moolen.github.io/harbor-sync).
+follow hubble example:
 
-## Status
-This project is in alpha state, we do not offer strong guarantees for our API interface.
-We will introduce breaking changes before the 1.0 release.
+```
+kubectl create namespace jobs-demo
+kubectl -n jobs-demo apply -f https://app.isovalent.com/demos/jobs.yaml
+```
 
-### Contributions
+Once the pods are up generate some traffic:
 
-Pull requests are welcome!
-* Read [CONTRIBUTING.md](./CONTRIBUTING.md) and check out [help wanted](https://github.com/moolen/harbor-sync/labels/help%20wanted) issues.
-* Please submit github issues for feature requests, bugs or documentation problems
-* Questions/comments and support can be posted as [github issue](https://github.com/moolen/harbor-sync/issues).
+```
+curl -sLO https://app.isovalent.com/demos/jobs-traffic.sh && bash jobs-traffic.sh jobs-demo
+```

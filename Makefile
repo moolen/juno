@@ -16,7 +16,7 @@ GOBPF_ELF = vendor/github.com/iovisor/gobpf/elf
 GOBPF_ELF_SRC = https://raw.githubusercontent.com/iovisor/gobpf/master/elf
 
 
-all: agent
+all: vendor build-ebpf agent docker-build
 
 # Run tests
 test: fmt vet manifests misspell
@@ -41,7 +41,7 @@ includes:
 	curl -s $(GOBPF_ELF_SRC)/lib/nlattr.c -o $(GOBPF_ELF)/lib/nlattr.c
 
 # Build agent binary
-agent: includes # todo: add vet/fmt
+agent: includes
 	GOOS=linux GOARCH=amd64 GO111MODULE=on go build -mod vendor -a -o bin/juno main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
@@ -49,11 +49,14 @@ run: fmt vet manifests
 	mkdir -p bin/data
 	go run ./main.go agent --store=bin/data
 
+vendor:
+	go mod vendor
+
 # Install CRDs into a cluster
 install: kubectl-bin manifests
 	kustomize build config/crd | $(KUBECTL) apply -f -
 
-build-ebpf-object:
+build-ebpf:
 	docker build -f bpf/Dockerfile -t bpfbuilder .
 	docker run --rm -it \
 		-v $(PWD):/src \
@@ -63,8 +66,7 @@ build-ebpf-object:
 		make -f ebpf.mk build
 
 	sudo chown -R $(UID):$(UID) bin
-	cp bin/tcptracer-ebpf.go pkg/tracer/tcptracer-ebpf.go
-
+	cp bin/bindata.go pkg/tracer/bindata.go
 
 # Deploy agent in the configured Kubernetes cluster in ~/.kube/config
 deploy: kubectl-bin manifests
@@ -104,7 +106,7 @@ docker-test:
 	docker build -t test:latest -f Dockerfile.test .
 	docker run test:latest
 
-docker-build:
+docker-build: build-ebpf
 	docker build . -t ${IMG}
 
 docker-push:

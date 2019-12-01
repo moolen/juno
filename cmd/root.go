@@ -14,7 +14,7 @@ var rootCmd = &cobra.Command{
 	Short: "",
 	Long:  ``,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		lvl, err := log.ParseLevel(logLevel)
+		lvl, err := log.ParseLevel(viper.GetString("loglevel"))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -32,7 +32,11 @@ var (
 
 func init() {
 	viper.AutomaticEnv()
-	rootCmd.PersistentFlags().StringVar(&logLevel, "loglevel", "debug", "set the loglevel")
+	flags := rootCmd.PersistentFlags()
+	flags.StringVar(&logLevel, "loglevel", "debug", "set the loglevel")
+	viper.BindPFlags(flags)
+	viper.BindEnv("loglevel", "LOGLEVEL")
+
 }
 
 // Execute runs the root command

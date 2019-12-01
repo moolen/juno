@@ -3,4 +3,4 @@ bases:
 - ../rbac
 
 commonLabels:
-  app: harbor-sync
+  app: juno

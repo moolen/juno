@@ -14,6 +14,7 @@ spec:
         app: juno
     spec:
       hostNetwork: true
+      hostPID: true
       serviceAccountName: juno
       tolerations:
       - key: node-role.kubernetes.io/master
@@ -47,3 +48,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
+        - name: LOGLEVEL
+          value: debug
+        - name: TARGET_INTERFACES
+          value: lxc

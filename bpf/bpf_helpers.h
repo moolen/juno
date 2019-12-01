@@ -57,6 +57,13 @@ unsigned long long load_half(void *skb,
 unsigned long long load_word(void *skb,
 			     unsigned long long off) asm("llvm.bpf.load.word");
 
+static int (*bpf_skb_load_bytes)(void *ctx, int off, void *to, int len) =
+	(void *) BPF_FUNC_skb_load_bytes;
+
+#define cursor_advance(_cursor, _len) \
+  ({ void *_tmp = _cursor; _cursor += _len; _tmp; })
+
+
 /* a helper structure used by eBPF C program
  * to describe map attributes to elf_bpf loader
  */
@@ -143,3 +150,35 @@ static int (*bpf_l4_csum_replace)(void *ctx, int off, int from, int to, int flag
 #endif
 
 #endif
+
+#ifndef memcpy
+# define memcpy(dest, src, n)   __builtin_memcpy((dest), (src), (n))
+#endif
+
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+# define __bpf_ntohs(x)		__builtin_bswap16(x)
+# define __bpf_htons(x)		__builtin_bswap16(x)
+# define __bpf_ntohl(x)		__builtin_bswap32(x)
+# define __bpf_htonl(x)		__builtin_bswap32(x)
+#elif __BYTE_ORDER == __BIG_ENDIAN
+# define __bpf_ntohs(x)		(x)
+# define __bpf_htons(x)		(x)
+# define __bpf_ntohl(x)		(x)
+# define __bpf_htonl(x)		(x)
+#else
+# error "Fix your __BYTE_ORDER?!"
+#endif
+
+#define bpf_htons(x)				\
+	(__builtin_constant_p(x) ?		\
+	 __constant_htons(x) : __bpf_htons(x))
+#define bpf_ntohs(x)				\
+	(__builtin_constant_p(x) ?		\
+	 __constant_ntohs(x) : __bpf_ntohs(x))
+
+#define bpf_htonl(x)				\
+	(__builtin_constant_p(x) ?		\
+	 __constant_htonl(x) : __bpf_htonl(x))
+#define bpf_ntohl(x)				\
+	(__builtin_constant_p(x) ?		\
+	 __constant_ntohl(x) : __bpf_ntohl(x))

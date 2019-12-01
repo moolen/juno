@@ -1,0 +1,17 @@
+{
+    "files.associations": {
+        "bpf_helpers.h": "c",
+        "tcptracer-sock-bpf.h": "c",
+        "ptrace.h": "c",
+        "ip.h": "c",
+        "if_ether.h": "c",
+        "tcp.h": "c",
+        "tcptracer-bpf.h": "c",
+        "array": "c",
+        "string": "c",
+        "string_view": "c",
+        "ipv6.h": "c",
+        "tuple": "c",
+        "byteorder.h": "c"
+    }
+}
