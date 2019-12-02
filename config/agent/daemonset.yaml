@@ -49,6 +49,6 @@ spec:
             fieldRef:
               fieldPath: spec.nodeName
         - name: LOGLEVEL
-          value: debug
+          value: info
         - name: TARGET_INTERFACES
           value: lxc

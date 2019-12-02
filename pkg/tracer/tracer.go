@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
@@ -53,8 +54,6 @@ func processSample(data []byte) (*TraceEvent, error) {
 		return nil, err
 	}
 	trace.Metadata = metadata
-	log.Debugf("(%d) %x", len(data), skb)
-
 	packet := gopacket.NewPacket(skb, layers.LayerTypeEthernet, gopacket.Default)
 	if ipLayer := packet.Layer(layers.LayerTypeIPv4); ipLayer != nil {
 		ip, _ := ipLayer.(*layers.IPv4)
@@ -112,6 +111,7 @@ func (s *Tracer) Start() error {
 				continue
 			}
 			s.outChan <- *trace
+			<-time.After(time.Millisecond * 50)
 		}
 	}()
 	err := replaceDatapath(s.coll, s.ifacePrefix)

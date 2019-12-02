@@ -2,8 +2,10 @@ package controller
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os/exec"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -118,9 +120,9 @@ func (c *Controller) pollEvents() {
 				c.k8sMutex.RUnlock()
 				continue
 			}
-			sourceName := spo.ObjectMeta.Labels["app"]
-			dpoName := dpo.ObjectMeta.Labels["app"]
-			dsvcName := dsvc.ObjectMeta.Labels["app"]
+			sourceName := fmt.Sprintf("%s/%s", spo.ObjectMeta.Namespace, spo.ObjectMeta.Name)
+			dpoName := fmt.Sprintf("%s/%s", dpo.ObjectMeta.Namespace, dpo.ObjectMeta.Name)
+			dsvcName := fmt.Sprintf("%s/%s", dsvc.ObjectMeta.Namespace, dsvc.ObjectMeta.Name)
 
 			if dpoOk && dpoName != "" {
 				c.graphMutex.Lock()
@@ -157,8 +159,10 @@ func addEdge(data map[string][]string, source, dest string) {
 	data[source] = append(data[source], dest)
 }
 
+var replacer = strings.NewReplacer("/", "", "_", "", "-", "")
+
 func sanitize(in string) string {
-	return strings.Replace(in, "-", "", -1)
+	return replacer.Replace(in)
 }
 
 func (c *Controller) genGraph() {
@@ -178,11 +182,15 @@ func (c *Controller) genGraph() {
 			for _, dest := range ds {
 				destinations[dest] = struct{}{}
 			}
-			graph.AddNode("G", sanitize(src), nil)
+			graph.AddNode("G", sanitize(src), map[string]string{
+				"label": strconv.Quote(src),
+			})
 		}
 		// add destinations nodes
 		for dest := range destinations {
-			graph.AddNode("G", sanitize(dest), nil)
+			graph.AddNode("G", sanitize(dest), map[string]string{
+				"label": strconv.Quote(dest),
+			})
 		}
 		// add edges
 		for src, ds := range c.graphData {

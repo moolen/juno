@@ -1,3 +1,7 @@
+# Juno
+
+Auditable, distributed tcpdump for kubernetes.
+
 ## TODO
 
 Poc #1
@@ -6,7 +10,7 @@ Poc #1
 
 PoC #2
 * [x] run eBPF program on veth to extract traffic flow information
-* [ ] implement auditing use-case: implement event buffer map per veth interface
+* [x] implement auditing use-case: implement event buffer map per veth interface
 
 * [ ] implement central component to collect traffic information
 
