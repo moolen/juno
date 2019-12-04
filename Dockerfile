@@ -12,10 +12,11 @@ COPY Makefile Makefile
 COPY pkg/ pkg/
 COPY bpf/ bpf/
 COPY cmd/ cmd/
+COPY proto/ proto/
 COPY vendor/ vendor/
 COPY main.go main.go
 
-RUN make agent
+RUN make binary
 
 FROM alpine:3.10
 WORKDIR /
