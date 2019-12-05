@@ -4,7 +4,10 @@ WORKDIR /workspace
 
 RUN sh -c "echo http://dl-cdn.alpinelinux.org/alpine/edge/community >> /etc/apk/repositories" && \
         apk update && \
-        apk add bcc gcc libc-dev build-base linux-headers curl
+        apk add \
+        bcc gcc \
+        libc-dev build-base \
+        linux-headers curl
 
 COPY go.mod go.mod
 COPY go.sum go.sum

@@ -15,22 +15,13 @@ PWD=$(shell pwd)
 GOBPF_ELF = vendor/github.com/iovisor/gobpf/elf
 GOBPF_ELF_SRC = https://raw.githubusercontent.com/iovisor/gobpf/master/elf
 
+all: proto build-ebpf binary docker-build
 
-all: vendor build-ebpf agent docker-build
-
-# Run tests
-test: fmt vet manifests misspell
+test: fmt vet misspell
 	go test ./... -coverprofile cover.out
 
-.PHONY: docs
-docs: bin/hugo
-	cd docs_src; ../$(HUGO) --theme book --destination ../docs
-
-docs-live: bin/hugo
-	cd docs_src; ../$(HUGO) server --minify --theme book
-
 .PHONY: includes
-includes:
+includes: vendor
 	-mkdir -p vendor/github.com/iovisor/gobpf/elf/include
 	-mkdir -p vendor/github.com/iovisor/gobpf/elf/lib
 	curl -s $(GOBPF_ELF_SRC)/include/bpf.h -o $(GOBPF_ELF)/include/bpf.h
@@ -40,23 +31,20 @@ includes:
 	curl -s $(GOBPF_ELF_SRC)/lib/netlink.c -o $(GOBPF_ELF)/lib/netlink.c
 	curl -s $(GOBPF_ELF_SRC)/lib/nlattr.c -o $(GOBPF_ELF)/lib/nlattr.c
 
-# Build agent binary
-agent: includes
+binary: vendor
 	GOOS=linux GOARCH=amd64 GO111MODULE=on go build -mod vendor -a -o bin/juno main.go
 
-# Run against the configured Kubernetes cluster in ~/.kube/config
-run: fmt vet manifests
-	mkdir -p bin/data
-	go run ./main.go agent --store=bin/data
+.PHONY: proto
+proto:
+	protoc -I proto proto/tracer.proto --go_out=plugins=grpc:./proto
 
 vendor:
 	go mod vendor
 
-# Install CRDs into a cluster
-install: kubectl-bin manifests
-	kustomize build config/crd | $(KUBECTL) apply -f -
+install:
+	kustomize build config/default | $(KUBECTL) apply -f -
 
-build-ebpf:
+build-ebpf: bin includes
 	docker build -f bpf/Dockerfile -t bpfbuilder .
 	docker run --rm -it \
 		-v $(PWD):/src \
@@ -65,24 +53,11 @@ build-ebpf:
 		bpfbuilder \
 		make -f ebpf.mk build
 
-	sudo chown -R $(UID):$(UID) bin
 	cp bin/bindata.go pkg/tracer/bindata.go
 
-# Deploy agent in the configured Kubernetes cluster in ~/.kube/config
-deploy: kubectl-bin manifests
+deploy:
 	cd config/agent && kustomize edit set image agent=${IMG}
 	kustomize build config/default | $(KUBECTL) apply -f -
-
-# Checks if generated files differ
-check-gen-files: docs quick-install
-	git diff --exit-code
-
-# Generate manifests e.g. CRD, RBAC etc.
-manifests: bin/controller-gen
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=harbor-sync paths="./..." output:crd:artifacts:config=config/crd/bases
-
-quick-install: bin/kubectl
-	$(KUBECTL) kustomize config/default/ > install/kubernetes/quick-install.yaml
 
 misspell: bin/misspell
 	$(MISSPELL) \
@@ -90,23 +65,20 @@ misspell: bin/misspell
 		-error \
 		api/* pkg/* docs_src/content/* config/* hack/* README.md CONTRIBUTING.md
 
-# Run go fmt against code
 fmt:
 	go fmt ./pkg/...
 	go fmt ./cmd/...
 
-# Run go vet against code
 vet:
 	go vet ./pkg/...
 	go vet ./cmd/...
 
-# Run tests in container
 docker-test:
 	rm -rf bin
 	docker build -t test:latest -f Dockerfile.test .
 	docker run test:latest
 
-docker-build: build-ebpf
+docker-build: proto build-ebpf
 	docker build . -t ${IMG}
 
 docker-push:
@@ -133,3 +105,6 @@ bin/kubectl:
 	curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.15.0/bin/linux/amd64/kubectl
 	chmod +x ./kubectl
 	mkdir bin; mv kubectl bin/kubectl
+
+bin:
+	mkdir bin

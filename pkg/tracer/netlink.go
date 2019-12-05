@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"syscall"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/cilium/ebpf"
+	log "github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
 

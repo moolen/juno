@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/moolen/juno/pkg/agent/controller"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -12,16 +14,25 @@ import (
 	"github.com/spf13/viper"
 
 	"k8s.io/client-go/kubernetes"
-
-	ctrl "sigs.k8s.io/controller-runtime"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 func init() {
 	flags := agentCmd.PersistentFlags()
-	//nodeName := flags.String("node", "", "kubernetes node name. used to fetch resources specific to this node")
 	flags.String("iface", "veth", "target interfaces for bpf injection")
+	flags.Duration("sync-interval", time.Second*60, "sync intervall")
+	flags.Duration("perf-poll-interval", time.Millisecond, "poll interval on perf map")
+	flags.Int("cache-buffer-size", 3000, "cache buffer size")
+	flags.Int("listen-port", 3000, "server port")
+	flags.String("k8s-node", "", "kubernetes node name")
+	flags.String("apiserver-address", "10.96.0.1", "kubernetes apiserver address")
+
 	viper.BindPFlags(flags)
 	viper.BindEnv("iface", "TARGET_INTERFACES")
+	viper.BindEnv("listen-port", "LISTEN_PORT")
+	viper.BindEnv("k8s-node", "KUBERNETES_NODE")
+	viper.BindEnv("apiserver-address", "APISERVER_ADDRESS")
 	rootCmd.AddCommand(agentCmd)
 }
 
@@ -30,24 +41,29 @@ var agentCmd = &cobra.Command{
 	Short: "Agent [...]",
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Infof("starting agent")
-		cfg, err := ctrl.GetConfig()
+		kubeClient, err := newClient()
 		if err != nil {
 			log.Fatal(err)
 		}
-		clientset, err := kubernetes.NewForConfig(cfg)
-		if err != nil {
-			log.Error(err)
-		}
-		// TODO: pass in nodename? (see below)
-		bpfController, err := controller.New(clientset, viper.GetString("iface"))
+		bpfController, err := controller.New(
+			kubeClient,
+			viper.GetString("iface"),
+			viper.GetString("k8s-node"),
+			viper.GetString("apiserver-address"),
+			viper.GetDuration("sync-interval"),
+			viper.GetDuration("perf-poll-interval"),
+			viper.GetInt("listen-port"),
+			viper.GetInt("cache-buffer-size"),
+		)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt)
+		stopChan := make(chan os.Signal)
+		signal.Notify(stopChan, os.Interrupt)
+		signal.Notify(stopChan, syscall.SIGTERM)
 		go func() {
-			<-c
+			<-stopChan
 			log.Infof("received ctrl+c, cleaning up")
 			bpfController.Stop()
 			log.Infof("shutting down")
@@ -56,14 +72,27 @@ var agentCmd = &cobra.Command{
 
 		bpfController.Start()
 
-		/* ctx := context.Background()
-		nodeName := "my-node"
-		var pods v1.PodList
-		k8sClient.List(ctx, types.NamespacedName{}, &pods)
-
-			FieldSelector: "spec.nodeName=" + nodeName,
-		*/
+		// start metrics server
 		http.Handle("/metrics", promhttp.Handler())
 		http.ListenAndServe(":2112", nil)
 	},
+}
+
+func newClient() (*kubernetes.Clientset, error) {
+	var cfg *rest.Config
+	var err error
+	kubeConfig := viper.GetString("kubeconfig")
+	if kubeConfig == "" {
+		cfg, err = rest.InClusterConfig()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		cfg, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+			&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeConfig}, &clientcmd.ConfigOverrides{}).ClientConfig()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return kubernetes.NewForConfig(cfg)
 }

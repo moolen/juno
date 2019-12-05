@@ -1,5 +1,9 @@
 #!/bin/sh
 set +x
-ulimit -l unlimited
+
+if [ -n "$SET_ULIMIT" ]; then
+    ulimit -l unlimited
+fi
+
 ulimit -a unlimited
 /juno "$@"

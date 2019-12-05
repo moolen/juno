@@ -33,10 +33,11 @@ var (
 func init() {
 	viper.AutomaticEnv()
 	flags := rootCmd.PersistentFlags()
+	flags.String("kubeconfig", "", "kubeconfig to use")
 	flags.StringVar(&logLevel, "loglevel", "debug", "set the loglevel")
 	viper.BindPFlags(flags)
 	viper.BindEnv("loglevel", "LOGLEVEL")
-
+	viper.BindEnv("kubeconfig", "KUBECONFIG")
 }
 
 // Execute runs the root command

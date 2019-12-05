@@ -16,9 +16,11 @@ type TraceMetadata struct {
 	SKBLen uint16
 }
 
+var InvalidDataLen = fmt.Errorf("invalid data length")
+
 func perfEventToGo(data []byte) (*TraceMetadata, []byte, error) {
 	if len(data) < 6 {
-		return nil, nil, fmt.Errorf("invalid data length: %d", len(data))
+		return nil, nil, InvalidDataLen
 	}
 	metadata := data[:6]
 	skb := data[6:]

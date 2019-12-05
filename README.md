@@ -1,6 +1,5 @@
 # Juno
-
-Auditable, distributed tcpdump for kubernetes.
+Network tracing and auditing for Kubernetes.
 
 ## TODO
 
@@ -41,4 +40,19 @@ Once the pods are up generate some traffic:
 
 ```
 curl -sLO https://app.isovalent.com/demos/jobs-traffic.sh && bash jobs-traffic.sh jobs-demo
+```
+
+## Development
+```sh
+$ minikube start
+# build bpf bytecode and protobuf defs
+$ make all
+
+# build docker container in minikube
+$ eval $(minikube docker-env)
+$ docker build . -t quay.io/moolen/juno:test
+$ kubectl apply -k config/default
+
+# demo app
+$ kubectl apply -f ./hack/microservices-demo.yaml
 ```

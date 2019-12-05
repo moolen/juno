@@ -6,12 +6,12 @@ import (
 	"strings"
 )
 
-// TraceEvent ..
+// TraceEvent contains
 type TraceEvent struct {
 	Metadata   *TraceMetadata
 	SourceAddr net.IP
-	SourcePort uint16
 	DestAddr   net.IP
+	SourcePort uint16
 	DestPort   uint16
 	L3Proto    L3Proto
 	L4Proto    L4Proto
@@ -36,8 +36,9 @@ const (
 type L7Proto string
 
 const (
-	L7HTTP L7Proto = "HTTP"
-	L7DNS  L7Proto = "DNS"
+	L7HTTP    L7Proto = "HTTP"
+	L7DNS     L7Proto = "DNS"
+	L7Unknown L7Proto = "unknown"
 )
 
 // L7Metadata ..
@@ -45,15 +46,17 @@ type L7Metadata map[string]string
 
 func (t *TraceEvent) String() string {
 	return fmt.Sprintf(
+		// [iface] [pkg-len] [l3/l4/l7] src -> dest | l7-payload
 		"[%s] [%d] [%s/%s/%s] %s:%d -> %s:%d | %s",
 		t.Metadata.Ifname, t.Metadata.SKBLen, t.L3Proto, t.L4Proto, t.L7Proto,
 		t.SourceAddr, t.SourcePort, t.DestAddr, t.DestPort, t.L7Metadata.String(),
 	)
 }
+
 func (m L7Metadata) String() string {
 	var s string
 	for k, v := range m {
-		s += fmt.Sprintf("%s=%s\n", k, v)
+		s += fmt.Sprintf("%s=%s | ", k, v)
 	}
-	return strings.TrimRight(s, "\n")
+	return strings.TrimRight(s, " | ")
 }

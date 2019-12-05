@@ -1,0 +1,131 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+package tracer;
+
+service Tracer {
+    rpc GetTraces(GetTracesRequest) returns (stream GetTracesResponse) {}
+    rpc ServerStatus(ServerStatusRequest) returns (ServerStatusResponse) {}
+}
+
+message GetTracesRequest {}
+
+message GetTracesResponse {
+    Trace trace = 1;
+}
+
+message Trace {
+    google.protobuf.Timestamp time = 1;
+    IP IP = 5;
+    Layer4 l4 = 6;
+    Layer7 l7 = 15;
+    Endpoint source = 8;
+    Endpoint destination = 9;
+    string node_name = 11;
+}
+
+message Layer4 {
+    oneof protocol {
+        TCP TCP = 1;
+        UDP UDP = 2;
+        ICMPv4 ICMPv4 = 3;
+        ICMPv6 ICMPv6 = 4;
+    }
+}
+
+message Layer7 {
+    oneof record {
+        DNS dns = 100;
+        HTTP http = 101;
+        // to be continued
+    }
+}
+
+message Endpoint {
+    string namespace = 1;
+    string name = 2;
+    repeated string labels = 3;
+}
+
+// ===============================
+
+message IP {
+    string source = 1;
+    string destination = 2;
+    IPVersion ipVersion = 3;
+}
+
+enum IPVersion {
+    IP_NOT_USED = 0;
+    IPv4 = 1;
+    IPv6 = 2;
+}
+
+message TCP {
+    uint32 source_port = 1;
+    uint32 destination_port = 2;
+    TCPFlags flags = 3;
+}
+
+message TCPFlags {
+    bool FIN = 1;
+    bool SYN = 2;
+    bool RST = 3;
+    bool PSH = 4;
+    bool ACK = 5;
+    bool URG = 6;
+    bool ECE = 7;
+    bool CWR = 8;
+    bool NS = 9;
+}
+
+message UDP {
+    uint32 source_port = 1;
+    uint32 destination_port = 2;
+}
+
+message ICMPv4 {
+    uint32 type = 1;
+    uint32 code = 2;
+}
+
+message ICMPv6 {
+    uint32 type = 1;
+    uint32 code = 2;
+}
+
+message DNS {
+    string query = 1;
+    // Return code of the DNS request defined in:
+    //   https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6
+    uint32 rcode = 6;
+    // String representation of qtypes defined in:
+    //   https://tools.ietf.org/html/rfc1035#section-3.2.3
+    repeated string qtypes = 7;
+    // String representation of rrtypes defined in:
+    // https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-4
+    repeated string rrtypes = 8;
+}
+
+message HTTPHeader {
+    string key = 1;
+    string value = 2;
+}
+
+message HTTP {
+    uint32 code = 1;
+    string method = 2;
+    string url = 3;
+    string protocol = 4;
+    repeated HTTPHeader headers = 5;
+}
+
+// ===============================
+
+message ServerStatusRequest {}
+
+message ServerStatusResponse {
+    uint64 num_flows = 1;
+    uint64 max_flows = 2;
+}
