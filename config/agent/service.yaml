@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: juno
+  name: juno
+  namespace: default
+spec:
+  ports:
+  - name: grpc
+    port: 3000
+    protocol: TCP
+    targetPort: 3000
+  sessionAffinity: None
+  selector:
+    app: juno
+  type: ClusterIP
+status:
+  loadBalancer: {}

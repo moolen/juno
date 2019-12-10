@@ -1,6 +1,3 @@
 bases:
 - ../agent
 - ../rbac
-
-commonLabels:
-  app: juno
