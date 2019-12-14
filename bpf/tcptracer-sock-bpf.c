@@ -18,8 +18,10 @@
 
 #define SAMPLE_SIZE 128u
 
-// TODO: make this configurable?
-// how does cilium/ebpf handle that?
+// TODO: this requires re-compiling duing runtime (which we do not want to support)
+// read man 7 bpf-helpers at bpf_perf_event_read_value
+// clang offers a macro: __NR_CPUS__
+// see: https://github.com/cilium/cilium/blob/e049cfa7e253d224f7fdfdc30390e62556c5e6ee/bpf/lib/events.h#L14
 #define MAX_CPUS 2
 #define ETH_HLEN 14
 

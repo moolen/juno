@@ -10,8 +10,11 @@ Poc #1
 PoC #2
 * [x] run eBPF program on veth to extract traffic flow information
 * [x] implement auditing use-case: implement event buffer map per veth interface
-
 * [ ] implement central component to collect traffic information
+
+## Limitations
+
+* this supports only a fixed number of CPUs (currently 2) see `tcptracker-sock-bpf.c` / `MAX_CPU`
 
 ## Notes
 
@@ -53,6 +56,14 @@ $ eval $(minikube docker-env)
 $ docker build . -t quay.io/moolen/juno:test
 $ kubectl apply -k config/default
 
-# demo app
+# test server locally
+$ kubectl port-forward svc/juno 3000:3000
+$ ./bin/juno server
+INFO[0002] received trace: trace:<time:<seconds:29 > IP:<source:"172.17.0.1" destination:"172.17.0.3" ipVersion:IPv4 > l4:<TCP:<source_port:35252 destination_port:8181 flags:<PSH:true ACK:true > > > l7:<http:<method:"GET" url:"/ready" protocol:"HTTP/1.1" > > >
+INFO[0000] received trace: trace:<time:<seconds:22 > IP:<source:"172.17.0.1" destination:"172.17.0.2" ipVersion:IPv4 > l4:<TCP:<source_port:50774 destination_port:8080 flags:<PSH:true ACK:true > > > l7:<http:<method:"GET" url:"/health" protocol:"HTTP/1.1" > > >
+
+# install demo app
 $ kubectl apply -f ./hack/microservices-demo.yaml
+
+
 ```
