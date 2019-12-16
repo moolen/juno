@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -22,6 +23,8 @@ func compileAndLoad() (*ebpf.Collection, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "error loading collection spec")
 	}
+	// change max size according to num cpus
+	spec.Maps["EVENTS_MAP"].MaxEntries = uint32(runtime.NumCPU())
 	coll, err := ebpf.NewCollection(spec)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating collection")

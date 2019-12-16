@@ -17,12 +17,6 @@
 #include "bpf_helpers.h"
 
 #define SAMPLE_SIZE 128u
-
-// TODO: this requires re-compiling duing runtime (which we do not want to support)
-// read man 7 bpf-helpers at bpf_perf_event_read_value
-// clang offers a macro: __NR_CPUS__
-// see: https://github.com/cilium/cilium/blob/e049cfa7e253d224f7fdfdc30390e62556c5e6ee/bpf/lib/events.h#L14
-#define MAX_CPUS 2
 #define ETH_HLEN 14
 
 #ifndef __packed
@@ -48,7 +42,7 @@ struct bpf_map_def SEC("maps/EVENTS_MAP") EVENTS_MAP = {
     .type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
     .key_size = 0,
     .value_size = 0,
-    .max_entries = MAX_CPUS,
+    .max_entries = 300, // this is changed at runtime to num cpus
 };
 
 static __always_inline void send_trace(struct __sk_buff *skb, __u64 sample_size) {
