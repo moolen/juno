@@ -1,0 +1,17 @@
+FROM golang:1.12.5 as builder
+
+ARG KUBEBUILDER_VERSION=2.0.0
+RUN echo ${KUBEBUILDER_VERSION}
+RUN curl -sL# https://github.com/kubernetes-sigs/kubebuilder/releases/download/v${KUBEBUILDER_VERSION}/kubebuilder_${KUBEBUILDER_VERSION}_linux_amd64.tar.gz | tar -xz -C /tmp/
+RUN mv /tmp/kubebuilder_${KUBEBUILDER_VERSION}_linux_amd64 /tmp/kubebuilder
+
+FROM gcr.io/cloud-builders/go
+
+# test scripts require this to be in usr/local
+COPY --from=builder /tmp/kubebuilder /usr/local/kubebuilder
+ENV PATH=/usr/local/kubebuilder/bin:$PATH
+RUN apk add --no-cache curl
+
+WORKDIR /app
+ADD . /app
+ENTRYPOINT ["/usr/bin/make", "test"]
