@@ -38,7 +38,7 @@ func init() {
 
 var agentCmd = &cobra.Command{
 	Use:   "agent",
-	Short: "Agent [...]",
+	Short: "The agent captures network traffic on specific interfaces",
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Infof("starting agent")
 		kubeClient, err := newClient()
