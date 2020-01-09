@@ -17,19 +17,12 @@ GOBPF_ELF_SRC = https://raw.githubusercontent.com/iovisor/gobpf/master/elf
 
 all: proto build-ebpf binary docker-build
 
+.PHONY: clean
+clean:
+	rm -rf bin/ vendor/
+
 test: fmt vet misspell
 	go test ./... -coverprofile cover.out
-
-.PHONY: includes
-includes: vendor
-	-mkdir -p vendor/github.com/iovisor/gobpf/elf/include
-	-mkdir -p vendor/github.com/iovisor/gobpf/elf/lib
-	curl -s $(GOBPF_ELF_SRC)/include/bpf.h -o $(GOBPF_ELF)/include/bpf.h
-	curl -s $(GOBPF_ELF_SRC)/include/bpf_map.h -o $(GOBPF_ELF)/include/bpf_map.h
-	curl -s $(GOBPF_ELF_SRC)/include/libbpf.h -o $(GOBPF_ELF)/include/libbpf.h
-	curl -s $(GOBPF_ELF_SRC)/include/nlattr.h -o $(GOBPF_ELF)/include/nlattr.h
-	curl -s $(GOBPF_ELF_SRC)/lib/netlink.c -o $(GOBPF_ELF)/lib/netlink.c
-	curl -s $(GOBPF_ELF_SRC)/lib/nlattr.c -o $(GOBPF_ELF)/lib/nlattr.c
 
 binary: vendor
 	GOOS=linux GOARCH=amd64 GO111MODULE=on go build -mod vendor -a -o bin/juno main.go
@@ -44,7 +37,7 @@ vendor:
 install:
 	kustomize build config/default | $(KUBECTL) apply -f -
 
-build-ebpf: bin includes
+build-ebpf: bin
 	docker build -f bpf/Dockerfile -t bpfbuilder .
 	docker run --rm -it \
 		-v $(PWD):/src \

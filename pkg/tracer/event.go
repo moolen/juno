@@ -2,10 +2,6 @@
 
 package tracer
 
-/*
-#include "../../bpf/tcptracer-sock-bpf.h"
-*/
-import "C"
 import (
 	"encoding/binary"
 	"fmt"
@@ -16,11 +12,12 @@ type TraceMetadata struct {
 	SKBLen uint16
 }
 
-var InvalidDataLen = fmt.Errorf("invalid data length")
+// ErrInvalidDataLen indicates that the delivered frame had a invalid length
+var ErrInvalidDataLen = fmt.Errorf("invalid data length")
 
 func perfEventToGo(data []byte) (*TraceMetadata, []byte, error) {
 	if len(data) < 6 {
-		return nil, nil, InvalidDataLen
+		return nil, nil, ErrInvalidDataLen
 	}
 	metadata := data[:6]
 	skb := data[6:]
