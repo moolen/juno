@@ -75,6 +75,22 @@ func (s *Tracer) pollPerfMap() {
 	}
 }
 
+func (s *Tracer) pollReplaceDatapath() {
+	log.Debugf("starting datapath replacer")
+	for {
+		select {
+		case <-s.stopChan:
+			return
+		default:
+			err := replaceDatapath(s.coll, s.ifacePrefix)
+			if err != nil {
+				log.Error(err)
+			}
+			<-time.After(s.pollInterval)
+		}
+	}
+}
+
 // Read returns a channel which outputs trace events
 func (s *Tracer) Read() <-chan pb.Trace {
 	return s.outChan
@@ -86,6 +102,7 @@ func (s *Tracer) Read() <-chan pb.Trace {
 func (s *Tracer) Start() error {
 	log.Debug("starting tracer")
 	go s.pollPerfMap()
+	go s.pollReplaceDatapath()
 	err := replaceDatapath(s.coll, s.ifacePrefix)
 	if err != nil {
 		return err
