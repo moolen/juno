@@ -16,6 +16,8 @@ type HTTPMetadata struct {
 	Proto  string
 }
 
+var ErrUnsupportedProto = fmt.Errorf("unsupported l7 proto")
+
 func parseHTTPMetadata(input *bufio.Reader) (string, string, string, uint32, error) {
 	tr := textproto.NewReader(input)
 	line, err := tr.ReadLine()
@@ -33,10 +35,12 @@ func parseHTTPMetadata(input *bufio.Reader) (string, string, string, uint32, err
 		proto = p1
 		c, _ := strconv.Atoi(p2)
 		code = uint32(c)
-	} else {
+	} else if p3 == "HTTP/1.1" {
 		method = p1
 		uri = p2
 		proto = p3
+	} else {
+		return "", "", "", 0, ErrUnsupportedProto
 	}
 
 	for _, v := range []string{method, uri, proto} {

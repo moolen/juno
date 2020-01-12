@@ -20,6 +20,14 @@ func TestParseHTTPPartial(t *testing.T) {
 			err:   true,
 		},
 		{
+			input: "y u no goat",
+			err:   true,
+		},
+		{
+			input: "GET /foo HTTP/2.7",
+			err:   true,
+		},
+		{
 			input:  "GET /foo HTTP/1.1",
 			code:   0,
 			method: "GET",
