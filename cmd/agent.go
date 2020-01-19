@@ -21,7 +21,7 @@ import (
 func init() {
 	flags := agentCmd.PersistentFlags()
 	flags.String("iface", "veth", "target interfaces for bpf injection")
-	flags.Duration("sync-interval", time.Second*60, "sync intervall")
+	flags.Duration("sync-interval", time.Second*60, "sync intervall (attach tc)")
 	flags.Duration("perf-poll-interval", time.Millisecond, "poll interval on perf map")
 	flags.Int("cache-buffer-size", 3000, "cache buffer size")
 	flags.Int("listen-port", 3000, "server port")
