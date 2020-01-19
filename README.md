@@ -10,11 +10,15 @@ Poc #1
 PoC #2
 * [x] run eBPF program on veth to extract traffic flow information
 * [x] implement auditing use-case: implement event buffer map per veth interface
-* [ ] implement central component to collect traffic information
+* [x] implement central component to collect traffic information
+
+Poc #3
+* [ ] derive service graph from collected traces (potentially configurable via label selectors)
+* [ ] export metrics in agents
 
 ## Limitations
 
-* this supports only a fixed number of CPUs (currently 2) see `tcptracker-sock-bpf.c` / `MAX_CPU`
+* ~~this supports only a fixed number of CPUs (currently 2) see `tcptracker-sock-bpf.c` / `MAX_CPU`~~ *fixed*
 
 ## Notes
 
