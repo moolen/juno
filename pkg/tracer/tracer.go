@@ -20,12 +20,13 @@ type Tracer struct {
 	perfReader   *perf.Reader
 	outChan      chan pb.Trace
 	pollInterval time.Duration
+	syncInterval time.Duration
 	ifacePrefix  string
 	stopChan     chan struct{}
 }
 
 // NewTracer prepares a eBPF program and a perf event reader
-func NewTracer(ifacePrefix string, perfPollInterval time.Duration) (*Tracer, error) {
+func NewTracer(ifacePrefix string, perfPollInterval, syncInterval time.Duration) (*Tracer, error) {
 	log.Info("loading tracer")
 	coll, err := compileAndLoad()
 	if err != nil {
@@ -45,6 +46,7 @@ func NewTracer(ifacePrefix string, perfPollInterval time.Duration) (*Tracer, err
 		outChan:      make(chan pb.Trace),
 		stopChan:     make(chan struct{}),
 		pollInterval: perfPollInterval,
+		syncInterval: syncInterval,
 		ifacePrefix:  ifacePrefix,
 	}, nil
 }
@@ -86,7 +88,7 @@ func (s *Tracer) pollReplaceDatapath() {
 			if err != nil {
 				log.Error(err)
 			}
-			<-time.After(s.pollInterval)
+			<-time.After(s.syncInterval)
 		}
 	}
 }

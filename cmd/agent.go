@@ -21,18 +21,17 @@ import (
 func init() {
 	flags := agentCmd.PersistentFlags()
 	flags.String("iface", "veth", "target interfaces for bpf injection")
-	flags.Duration("sync-interval", time.Second*60, "sync intervall (attach tc)")
+	flags.Duration("sync-interval", time.Second*60, "poll interval to attach eBPF programs to interfaces")
 	flags.Duration("perf-poll-interval", time.Millisecond, "poll interval on perf map")
-	flags.Int("cache-buffer-size", 3000, "cache buffer size")
 	flags.Int("listen-port", 3000, "server port")
 	flags.String("k8s-node", "", "kubernetes node name")
-	flags.String("apiserver-address", "10.96.0.1", "kubernetes apiserver address")
 
 	viper.BindPFlags(flags)
 	viper.BindEnv("iface", "TARGET_INTERFACES")
+	viper.BindEnv("sync-interval", "SYNC_INTERVAL")
+	viper.BindEnv("perf-poll-interval", "PERF_POLL_INTERVAL")
 	viper.BindEnv("listen-port", "LISTEN_PORT")
 	viper.BindEnv("k8s-node", "KUBERNETES_NODE")
-	viper.BindEnv("apiserver-address", "APISERVER_ADDRESS")
 	rootCmd.AddCommand(agentCmd)
 }
 
@@ -49,11 +48,9 @@ var agentCmd = &cobra.Command{
 			kubeClient,
 			viper.GetString("iface"),
 			viper.GetString("k8s-node"),
-			viper.GetString("apiserver-address"),
 			viper.GetDuration("sync-interval"),
 			viper.GetDuration("perf-poll-interval"),
 			viper.GetInt("listen-port"),
-			viper.GetInt("cache-buffer-size"),
 		)
 		if err != nil {
 			log.Fatal(err)

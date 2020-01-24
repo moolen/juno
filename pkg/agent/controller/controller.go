@@ -14,30 +14,23 @@ import (
 
 // Controller ...
 type Controller struct {
-	Client        *kubernetes.Clientset
-	Tracer        *tracer.Tracer
-	nodeName      string
-	apiserverAddr string
-	ring          *ring.Ring
-	srv           *TraceServer
+	Client   *kubernetes.Clientset
+	Tracer   *tracer.Tracer
+	nodeName string
+	ring     *ring.Ring
+	srv      *TraceServer
 
 	// this bool signals shutdown
 	stop bool
 }
 
-type EndpointMetadata struct {
-	Name      string
-	Namespace string
-	Labels    map[string]string
-}
-
 // New ...
 func New(
 	client *kubernetes.Clientset,
-	ifacePrefix, nodeName string, apiserverAddr string,
+	ifacePrefix, nodeName string,
 	syncInterval time.Duration,
 	perfPollInterval time.Duration,
-	listenPort, bufferSize int) (*Controller, error) {
+	listenPort int) (*Controller, error) {
 	ring := ring.NewRing(2048)
 	t, err := tracer.NewTracer(ifacePrefix, perfPollInterval, syncInterval)
 	if err != nil {
@@ -49,12 +42,11 @@ func New(
 	}
 
 	return &Controller{
-		Client:        client,
-		Tracer:        t,
-		nodeName:      nodeName,
-		apiserverAddr: apiserverAddr,
-		ring:          ring,
-		srv:           srv,
+		Client:   client,
+		Tracer:   t,
+		nodeName: nodeName,
+		ring:     ring,
+		srv:      srv,
 	}, nil
 }
 
@@ -63,6 +55,7 @@ func (c *Controller) pollEvents() {
 	for {
 		select {
 		case trace := <-c.Tracer.Read():
+			trace.NodeName = c.nodeName
 			c.ring.Write(&trace)
 		default:
 			if c.stop {
