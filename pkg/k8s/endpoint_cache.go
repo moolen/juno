@@ -50,7 +50,7 @@ func (s *EndpointCache) GetMetadataByIP(ip string) (map[string]string, error) {
 	return s.getMetadataForIP(ip)
 }
 
-func (s *EndpointCache) getEndpointByIP(ip string) (*v1.Endpoints, error) {
+func (s *EndpointCache) getByIP(ip string) (*v1.Endpoints, error) {
 	items, err := s.indexer.ByIndex(indexByIP, ip)
 	if err != nil {
 		return nil, err
@@ -65,9 +65,9 @@ func (s *EndpointCache) getEndpointByIP(ip string) (*v1.Endpoints, error) {
 	return nil, fmt.Errorf("multiple endpoints found")
 }
 
-// GetEndpointByIP returns the Endpoint
-func (s *EndpointCache) GetEndpointByIP(ip string) (*v1.Endpoints, error) {
-	return s.getEndpointByIP(ip)
+// GetByIP returns the Endpoint
+func (s *EndpointCache) GetByIP(ip string) (*v1.Endpoints, error) {
+	return s.getByIP(ip)
 }
 
 const (
