@@ -1,41 +1,36 @@
 package server
 
 import (
-	"bytes"
 	"context"
-	"crypto/md5"
-	"encoding/base64"
 	"fmt"
 	"net"
-	"strconv"
-
-	lru "github.com/hashicorp/golang-lru"
+	"time"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/moolen/juno/pkg/ipcache"
 	pb "github.com/moolen/juno/proto"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"k8s.io/client-go/kubernetes"
 )
 
 type Observer struct {
 	listener net.Listener
 	server   *grpc.Server
 	gw       *TraceProviderClient
-	cache    *lru.ARCCache
+	ipcache  *ipcache.State
 }
 
-func New(target string, port int) (*Observer, error) {
-	cache, err := lru.NewARC(1024)
-	if err != nil {
-		return nil, err
-	}
+func New(client *kubernetes.Clientset, target string, port int, syncInterval time.Duration, bufferSize int) (*Observer, error) {
 	gw, err := NewGateway(target)
 	if err != nil {
 		return nil, err
 	}
+	ipcache := ipcache.New(client, syncInterval, bufferSize)
+	ipcache.Run()
 	server := &Observer{
-		gw:    gw,
-		cache: cache,
+		gw:      gw,
+		ipcache: ipcache,
 	}
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
@@ -65,56 +60,24 @@ func (o *Observer) fetchTraces() {
 			log.Error(err)
 			return
 		}
-		log.Infof("received trace: %+v", trace)
 
-		id, err := id(trace.Trace)
+		// add metadata
+		trace.Trace.Source, err = o.ipcache.GetEndpointByIP(trace.Trace.IP.GetSource())
 		if err != nil {
-			log.Error(err)
+			log.Debugf("could not find endpoint for src: ", trace.Trace.IP.GetSource())
 			continue
 		}
-		o.cache.Add(id, trace.Trace)
-	}
-}
+		trace.Trace.Destination, err = o.ipcache.GetEndpointByIP(trace.Trace.IP.GetDestination())
+		if err != nil {
+			log.Debugf("could not find endpoint for dst: ", trace.Trace.IP.GetDestination())
+			continue
+		}
 
-func id(t *pb.Trace) (string, error) {
-	tcp := t.L4.GetTCP()
-	udp := t.L4.GetUDP()
-	h := md5.New()
-	b := bytes.Buffer{}
-	b.WriteString(t.IP.Source)
-	b.WriteString(t.IP.Destination)
+		log.Infof("received trace: %+v", trace)
 
-	// TODO: we need to figure out the direction of the trace
-	// to ignore ephemeral ports
-	// check ephemeral ports: https://en.wikipedia.org/wiki/Ephemeral_port#cite_note-3
-	if tcp != nil {
-		if tcp.DestinationPort < 32768 {
-			b.WriteString(strconv.Itoa(int(tcp.DestinationPort)))
-		}
-		if tcp.SourcePort < 32768 {
-			b.WriteString(strconv.Itoa(int(tcp.SourcePort)))
-		}
-	} else if udp != nil {
-		if udp.DestinationPort < 32768 {
-			b.WriteString(strconv.Itoa(int(udp.DestinationPort)))
-		}
-		if udp.SourcePort < 32768 {
-			b.WriteString(strconv.Itoa(int(udp.SourcePort)))
-		}
-	}
+		//TODO: build graph
 
-	_, err := h.Write(b.Bytes())
-	if err != nil {
-		return "", err
 	}
-	var outBuf bytes.Buffer
-	encoder := base64.NewEncoder(base64.StdEncoding, &outBuf)
-	defer encoder.Close()
-	_, err = encoder.Write(h.Sum(nil))
-	if err != nil {
-		return "", nil
-	}
-	return outBuf.String(), nil
 }
 
 func (srv *Observer) Serve(ctx context.Context) {

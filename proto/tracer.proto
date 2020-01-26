@@ -45,7 +45,7 @@ message Layer7 {
 message Endpoint {
     string namespace = 1;
     string name = 2;
-    repeated string labels = 3;
+    map<string, string> labels = 3;
 }
 
 // ===============================
