@@ -31,6 +31,7 @@ binary: vendor
 proto:
 	protoc -I proto proto/tracer.proto --go_out=plugins=grpc:./proto
 
+.PHONY: vendor
 vendor:
 	go mod vendor
 
