@@ -64,12 +64,12 @@ func TestFindIP(t *testing.T) {
 		t.Error(err)
 	}
 	defer source.Shutdown()
-	ep, _ := c.GetEndpointByIP("1.2.3.4")
+	ep, _ := c.GetByIP("1.2.3.4")
 	if ep.ObjectMeta.Name != "bar" {
 		t.Errorf("should have found endpoint. found: %#v", ep)
 	}
 
-	ep, _ = c.GetEndpointByIP("1.1.1.1")
+	ep, _ = c.GetByIP("1.1.1.1")
 	if ep.ObjectMeta.Name != "foo" {
 		t.Errorf("should have found endpoint. found: %#v", ep)
 	}
