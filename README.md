@@ -22,7 +22,8 @@ Poc #3
 
 ## Notes
 
-* docker/moby does not support cgroup2
+* docker/moby does not support cgroup2 (we can not inject eBPF into cgroup2 netns)
+* [tcptracer-bpf](https://github.com/weaveworks/tcptracer-bpf) kinda does exactly this BUT runs as `kprobe/tcp_v4_connect` with the limitation that it only supports tcp AND it does not get all connect calls.
 
 ## Installation
 
