@@ -1,17 +1,14 @@
-#define KBUILD_MODNAME "juno-socktracer"
+#include <stdint.h>
+#include <bpf/ctx/skb.h>
+#include <bpf/api.h>
 
-#include <linux/kconfig.h>
-#include <linux/ptrace.h>
-#include <stddef.h>
 #include <linux/bpf.h>
-#include <linux/pkt_cls.h>
 #include <linux/if_ether.h>
 #include <linux/if_packet.h>
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <linux/udp.h>
 #include <linux/tcp.h>
-#include <net/sock.h>
 
 #include "common.h"
 #include "bpf_helpers.h"

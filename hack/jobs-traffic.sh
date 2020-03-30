@@ -41,7 +41,7 @@ private_pod=`kubectl get pods -l app=recruiter -n $NAMESPACE -o name | sed s/.*\
 
 
 run () {
-  prefix="kubectl -n $NAMESPACE exec $pod sh -- -c"
+  prefix="kubectl -n $NAMESPACE exec $pod -- sh -c"
   cmd="$prefix '$1'"
   eval $cmd
 }

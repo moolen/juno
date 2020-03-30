@@ -1,11 +1,36 @@
-FROM fedora:24
+FROM docker.io/golang:1.14.1-buster
 
-ENV GOPATH /go
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y --no-install-recommends \
+	&& DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+		apt-utils \
+		binutils \
+		ca-certificates \
+		clang-7 \
+		coreutils \
+		curl \
+		gcc \
+		git \
+		iproute2 \
+		libc6-dev \
+		libc6-dev-i386 \
+		libelf-dev \
+		llvm-7 \
+		m4 \
+		make \
+		pkg-config \
+		python \
+		rsync \
+		unzip \
+		wget \
+		zip \
+		zlib1g-dev \
+		go-bindata \
+	&& apt-get clean \
+	&& rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
+	&& update-alternatives --install /usr/bin/clang clang /usr/bin/clang-7 100 \
+	&& update-alternatives --install /usr/bin/llc llc /usr/bin/llc-7 100
 
-# vim-common is needed for xxd
-# vim-minimal needs to be updated first to avoid an RPM conflict on man1/vim.1.gz
-RUN dnf update -y vim-minimal && \
-	dnf install -y llvm clang kernel-devel make binutils vim-common golang go-bindata
 
 RUN groupadd -r bpf && useradd -u 1000 -r -g bpf bpf
 RUN mkdir -p /src /go
