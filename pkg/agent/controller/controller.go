@@ -9,12 +9,10 @@ import (
 	"github.com/moolen/juno/pkg/tracer"
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 // Controller ...
 type Controller struct {
-	Client   *kubernetes.Clientset
 	Tracer   *tracer.Tracer
 	nodeName string
 	ring     *ring.Ring
@@ -26,23 +24,20 @@ type Controller struct {
 
 // New ...
 func New(
-	client *kubernetes.Clientset,
 	ifacePrefix, nodeName string,
 	syncInterval time.Duration,
-	perfPollInterval time.Duration,
-	listenPort int) (*Controller, error) {
+	perfPollInterval time.Duration) (*Controller, error) {
 	ring := ring.NewRing(2048)
 	t, err := tracer.NewTracer(ifacePrefix, perfPollInterval, syncInterval)
 	if err != nil {
 		return nil, err
 	}
-	srv, err := NewTraceServer(listenPort, ring)
+	srv, err := NewTraceServer(ring)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Controller{
-		Client:   client,
 		Tracer:   t,
 		nodeName: nodeName,
 		ring:     ring,
@@ -55,6 +50,7 @@ func (c *Controller) pollEvents() {
 	for {
 		select {
 		case trace := <-c.Tracer.Read():
+			traceEventCounter.WithLabelValues(c.nodeName).Inc()
 			trace.NodeName = c.nodeName
 			c.ring.Write(&trace)
 		default:

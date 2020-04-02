@@ -12,10 +12,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 func init() {
@@ -23,14 +19,12 @@ func init() {
 	flags.String("iface", "veth", "target interfaces for bpf injection")
 	flags.Duration("sync-interval", time.Second*60, "poll interval to attach eBPF programs to interfaces")
 	flags.Duration("perf-poll-interval", time.Millisecond, "poll interval on perf map")
-	flags.Int("listen-port", 3000, "server port")
 	flags.String("k8s-node", "", "kubernetes node name")
 
 	viper.BindPFlags(flags)
 	viper.BindEnv("iface", "TARGET_INTERFACES")
 	viper.BindEnv("sync-interval", "SYNC_INTERVAL")
 	viper.BindEnv("perf-poll-interval", "PERF_POLL_INTERVAL")
-	viper.BindEnv("listen-port", "LISTEN_PORT")
 	viper.BindEnv("k8s-node", "KUBERNETES_NODE")
 	rootCmd.AddCommand(agentCmd)
 }
@@ -40,17 +34,11 @@ var agentCmd = &cobra.Command{
 	Short: "The agent captures network traffic on specific interfaces",
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Infof("starting agent")
-		kubeClient, err := newClient()
-		if err != nil {
-			log.Fatal(err)
-		}
 		bpfController, err := controller.New(
-			kubeClient,
 			viper.GetString("iface"),
 			viper.GetString("k8s-node"),
 			viper.GetDuration("sync-interval"),
 			viper.GetDuration("perf-poll-interval"),
-			viper.GetInt("listen-port"),
 		)
 		if err != nil {
 			log.Fatal(err)
@@ -73,23 +61,4 @@ var agentCmd = &cobra.Command{
 		http.Handle("/metrics", promhttp.Handler())
 		http.ListenAndServe(":2112", nil)
 	},
-}
-
-func newClient() (*kubernetes.Clientset, error) {
-	var cfg *rest.Config
-	var err error
-	kubeConfig := viper.GetString("kubeconfig")
-	if kubeConfig == "" {
-		cfg, err = rest.InClusterConfig()
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		cfg, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-			&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeConfig}, &clientcmd.ConfigOverrides{}).ClientConfig()
-		if err != nil {
-			return nil, err
-		}
-	}
-	return kubernetes.NewForConfig(cfg)
 }

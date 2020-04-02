@@ -12,6 +12,7 @@ require (
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/protobuf v1.3.5
 	github.com/google/gopacket v1.1.17
+	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.1.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
@@ -34,10 +35,11 @@ require (
 	google.golang.org/appengine v1.6.5 // indirect
 	google.golang.org/genproto v0.0.0-20191115221424-83cc0476cb11 // indirect
 	google.golang.org/grpc v1.28.0
+	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
+	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.2.7 // indirect
 	k8s.io/api v0.0.0-20191114100352-16d7abae0d2a
 	k8s.io/apimachinery v0.0.0-20191028221656-72ed19daf4bb
 	k8s.io/client-go v0.0.0-20191114101535-6c5935290e33
 	k8s.io/utils v0.0.0-20191114200735-6ca3b61696b6 // indirect
-	sigs.k8s.io/controller-runtime v0.4.0
 )

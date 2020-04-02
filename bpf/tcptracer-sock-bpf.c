@@ -39,7 +39,7 @@ struct bpf_map_def SEC("maps/EVENTS_MAP") EVENTS_MAP = {
     .type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
     .key_size = 0,
     .value_size = 0,
-    .max_entries = 300, // this is changed at runtime to num cpus
+    .max_entries = 0, // this is changed at runtime to num cpus
 };
 
 static __always_inline void send_trace(struct __sk_buff *skb, __u64 sample_size) {
