@@ -3,14 +3,14 @@ package server
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
-	"os"
+	"strconv"
 	"time"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/moolen/juno/pkg/ipcache"
 	pb "github.com/moolen/juno/proto"
+	sg "github.com/moolen/statusgraph/pkg/store"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"k8s.io/client-go/kubernetes"
@@ -56,7 +56,7 @@ func (o *Observer) fetchTraces() {
 	}
 
 	log.Infof("run recv loop")
-	g := NewGraph()
+	//NewGraph()
 
 	for {
 		trace, err := cl.Recv()
@@ -76,48 +76,52 @@ func (o *Observer) fetchTraces() {
 			log.Debugf("could not find endpoint for dst: %s", trace.Trace.IP.GetDestination())
 			continue
 		}
+		log.Infof("srcEP %v, dstEP %v", srcEP, dstEP)
 		// build service id
-		srcID, dstID, err := buildID(trace.Trace, srcEP, dstEP)
-		if err != nil {
-			log.Debug(err)
-			continue
-		}
+		// srcID, dstID, err := buildID(trace.Trace, srcEP, dstEP)
+		// if err != nil {
+		// 	log.Debug(err)
+		// 	continue
+		// }
 
 		// add to graph
-		var srcNode, dstNode *Node
-		srcNode = g.FindNode(srcID)
-		if srcNode == nil {
-			srcNode = &Node{
-				ServiceID: srcID,
-			}
-			g.AddNode(srcNode)
-		}
-		dstNode = g.FindNode(dstID)
-		if dstNode == nil {
-			dstNode = &Node{
-				ServiceID: dstID,
-			}
-			g.AddNode(dstNode)
-		}
-		g.EnsureEdge(srcNode, dstNode)
+		// var srcNode, dstNode *Node
+		// srcNode = g.FindNode(srcID)
+		// if srcNode == nil {
+		// 	srcNode = &Node{
+		// 		ServiceID: srcID,
+		// 	}
+		// 	g.AddNode(srcNode)
+		// }
+		// dstNode = g.FindNode(dstID)
+		// if dstNode == nil {
+		// 	dstNode = &Node{
+		// 		ServiceID: dstID,
+		// 	}
+		// 	g.AddNode(dstNode)
+		// }
+		// g.EnsureEdge(srcNode, dstNode)
 
-		// this is for debugging RN
-		data, err := g.JSONGraph()
-		g.WriteDotGraph("graph.svg")
-		if err != nil {
-			log.Error(err)
-		}
-		err = ioutil.WriteFile("graph.json", data, os.ModePerm)
-		if err != nil {
-			log.Error(err)
-		}
+		// // this is for debugging RN
+		// data, err := g.JSONGraph()
+		// g.WriteDotGraph("graph.svg")
+		// if err != nil {
+		// 	log.Error(err)
+		// }
+		// err = ioutil.WriteFile("graph.json", data, os.ModePerm)
+		// if err != nil {
+		// 	log.Error(err)
+		// }
 
 	}
 }
 
-func buildID(t *pb.Trace, srcEP, dstEP *ipcache.Endpoint) (string, string, error) {
+func buildID(t *pb.Trace, srcEP, dstEP *ipcache.Endpoint) (*sg.Node, *sg.Node, error) {
+	src := &sg.Node{}
+	dst := &sg.Node{}
 	tcp := t.GetL4().GetTCP()
 	udp := t.GetL4().GetUDP()
+
 	var dport, sport uint32
 	if tcp != nil {
 		dport = tcp.GetDestinationPort()
@@ -126,23 +130,62 @@ func buildID(t *pb.Trace, srcEP, dstEP *ipcache.Endpoint) (string, string, error
 		dport = udp.GetDestinationPort()
 		sport = udp.GetSourcePort()
 	}
-
+	deph := isEphemeralPort(dport)
+	seph := isEphemeralPort(sport)
 	// skip invalid l4 & ephemere connections
 	if dport == 0 || sport == 0 {
-		return "", "", fmt.Errorf("missing L4 proto")
-	}
-	if isEphemeralPort(dport) && isEphemeralPort(sport) && !portMatchesEndpoint(dport, dstEP) && !portMatchesEndpoint(sport, srcEP) {
-		return "", "", fmt.Errorf("ephemere connection: %s:%d -> %s:%d (%#v | %#v)", t.IP.Source, sport, t.IP.Destination, dport, srcEP, dstEP)
+		return nil, nil, fmt.Errorf("missing L4 proto")
 	}
 
-	srcID := getDefaultIdentity(t.IP.Source, sport, srcEP)
-	dstID := getDefaultIdentity(t.IP.Destination, dport, dstEP)
+	dst.Name = getIdentity(t.IP.Destination, dstEP)
+	src.Name = getIdentity(t.IP.Source, srcEP)
+	if deph && seph {
+		if !portMatchesEndpoint(dport, dstEP) && !portMatchesEndpoint(sport, srcEP) {
+			return nil, nil, fmt.Errorf("ephemere connection: %s:%d -> %s:%d (%#v | %#v)", t.IP.Source, sport, t.IP.Destination, dport, srcEP, dstEP)
+		}
+		if portMatchesEndpoint(dport, dstEP) {
+			dst.Connector = []sg.NodeConnector{
+				{
+					Name:  dstEP.Ports[0].Name,
+					Label: strconv.Itoa(int(dstEP.Ports[0].Port)),
+				},
+			}
+			return src, dst, nil
+		}
+		if portMatchesEndpoint(sport, srcEP) {
+			src.Connector = []sg.NodeConnector{
+				{
+					Name:  srcEP.Ports[0].Name,
+					Label: strconv.Itoa(int(srcEP.Ports[0].Port)),
+				},
+			}
+			return dst, src, nil
+		}
+	}
+
+	if !seph {
+		src.Connector = []sg.NodeConnector{
+			{
+				Name:  srcEP.Ports[0].Name,
+				Label: strconv.Itoa(int(srcEP.Ports[0].Port)),
+			},
+		}
+	}
+
+	if !deph {
+		dst.Connector = []sg.NodeConnector{
+			{
+				Name:  dstEP.Ports[0].Name,
+				Label: strconv.Itoa(int(dstEP.Ports[0].Port)),
+			},
+		}
+	}
 
 	// switch directions if dport is ephemeral
 	if isEphemeralPort(dport) && !portMatchesEndpoint(dport, dstEP) {
-		return dstID, srcID, nil
+		return dst, src, nil
 	}
-	return srcID, dstID, nil
+	return src, dst, nil
 }
 
 func portMatchesEndpoint(port uint32, ep *ipcache.Endpoint) bool {
@@ -161,25 +204,17 @@ func isEphemeralPort(port uint32) bool {
 	return false
 }
 
-func getDefaultIdentity(addr string, port uint32, t *ipcache.Endpoint) string {
+func getIdentity(addr string, t *ipcache.Endpoint) string {
 	ip := net.ParseIP(addr)
 	if isPublicIP(ip) {
-		return formatIdentity("www", port)
+		return "www"
 	}
 	for _, l := range []string{"app", "k8s-app"} {
 		if t.Labels[l] != "" {
-			return formatIdentity(t.Labels[l], port)
+			return t.Labels[l]
 		}
 	}
-	return formatIdentity(t.Name, port)
-}
-
-// only add port name if non-ephemere
-func formatIdentity(name string, port uint32) string {
-	if isEphemeralPort(port) || port == 0 {
-		return name
-	}
-	return fmt.Sprintf("%s:%d", name, port)
+	return t.Name
 }
 
 func isPublicIP(IP net.IP) bool {

@@ -29,7 +29,7 @@ func init() {
 
 var serverCmd = &cobra.Command{
 	Use:   "server",
-	Short: "Server [...]",
+	Short: "Server collects traces from agent nodes",
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Infof("starting server")
 		kubeClient, err := newClient()
